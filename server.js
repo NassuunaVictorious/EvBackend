@@ -124,6 +124,3 @@ io.on("connection", (socket) => {
 server.listen(3000, () => {
     console.log("⚡ ChargeFlow running with PostgreSQL");
 });
-const authRoutes = require("./controllers/routes/auth");
-
-app.use("/auth", authRoutes);

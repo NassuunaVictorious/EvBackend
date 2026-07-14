@@ -2,129 +2,346 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+
 const pool = require("./db");
+
 const authRoutes = require("./controllers/routes/auth");
+
+
 const app = express();
+
+
+// Create HTTP server for Socket.IO
 const server = http.createServer(app);
+
+
+// Socket.IO setup
 const io = new Server(server, {
-    cors: { origin: "*" }
+
+    cors: {
+        origin: "https://serene-squirrel-97b2d8.netlify.app/"
+    }
+
 });
-console.log("Server file started");
 
 
+console.log("⚡ ChargeFlow server starting");
 
-app.use(cors());
+
+// =========================
+// MIDDLEWARE
+// =========================
+
+app.use(cors({
+
+origin:[
+    
+"https://serene-squirrel-97b2d8.netlify.app/"
+
+]
+
+}));
+
 app.use(express.json());
-app.use("/api/auth", authRoutes);
 
-/* =========================
-   GET STATIONS (DB)
-========================= */
 
-app.get("/stations", async (req, res) => {
+// =========================
+// ROUTES
+// =========================
 
-    try {
 
-        const result = await pool.query(
+// Authentication
+app.use("/auth", authRoutes);
+
+
+
+// Test route
+app.get("/", (req,res)=>{
+
+    res.send(
+        "EV Weather Backend is running successfully"
+    );
+
+});
+
+
+
+// =========================
+// STATIONS
+// =========================
+
+
+// Get all stations
+
+app.get("/stations", async(req,res)=>{
+
+
+    try{
+
+
+        const result =
+        await pool.query(
             "SELECT * FROM stations"
         );
 
-        res.json(result.rows);
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "DB error" });
+        res.json(
+            result.rows
+        );
+
+
     }
+    catch(err){
+
+        console.error(err);
+
+
+        res.status(500).json({
+
+            error:"Database error"
+
+        });
+
+    }
+
 
 });
 
-/* =========================
-   UPDATE STATION
-========================= */
 
-app.post("/stations/update", async (req, res) => {
 
-    const { id, status, queue } = req.body;
 
-    try {
+
+// Update station
+
+app.post("/stations/update", async(req,res)=>{
+
+
+    const {
+        id,
+        status,
+        queue
+    } = req.body;
+
+
+
+    try{
+
 
         await pool.query(
-            "UPDATE stations SET status=$1, queue=$2 WHERE id=$3",
-            [status, queue, id]
+
+            `
+            UPDATE stations
+            SET status=$1,
+                queue=$2
+            WHERE id=$3
+            `,
+
+            [
+                status,
+                queue,
+                id
+            ]
+
         );
 
-        const updated = await pool.query("SELECT * FROM stations");
 
-        // 🔴 REAL-TIME BROADCAST
-        io.emit("stations:update", updated.rows);
+
+        const updated =
+        await pool.query(
+            "SELECT * FROM stations"
+        );
+
+
+
+        // Send update to all connected users
+
+        io.emit(
+            "stations:update",
+            updated.rows
+        );
+
+
 
         res.json({
-            success: true,
-            stations: updated.rows
+
+            success:true,
+
+            stations:updated.rows
+
         });
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Update failed" });
+
+
     }
+    catch(err){
+
+
+        console.error(err);
+
+
+        res.status(500).json({
+
+            error:"Update failed"
+
+        });
+
+
+    }
+
 
 });
 
-/* =========================
-   COMMUNITY REPORT
-========================= */
 
-app.post("/community/report", async (req, res) => {
 
-    const { station_id, message, type } = req.body;
 
-    try {
+
+// =========================
+// COMMUNITY REPORTS
+// =========================
+
+
+app.post("/community/report", async(req,res)=>{
+
+
+    const {
+        station_id,
+        message,
+        type
+    } = req.body;
+
+
+
+    try{
+
 
         await pool.query(
-            "INSERT INTO reports (station_id, message, type) VALUES ($1,$2,$3)",
-            [station_id, message, type]
+
+            `
+            INSERT INTO reports
+            (
+                station_id,
+                message,
+                type
+            )
+
+            VALUES
+            ($1,$2,$3)
+
+            `,
+
+            [
+                station_id,
+                message,
+                type
+            ]
+
         );
 
-        // 🔴 SEND TO ALL USERS IN REAL TIME
-        io.emit("community:new", {
+
+
+        const report = {
+
             station_id,
+
             message,
+
             type
+
+        };
+
+
+
+        // Real-time notification
+
+        io.emit(
+            "community:new",
+            report
+        );
+
+
+
+        res.json({
+
+            success:true
+
         });
 
-        res.json({ success: true });
 
-    } catch (err) {
+
+    }
+    catch(err){
+
+
         console.error(err);
-        res.status(500).json({ error: "Report failed" });
+
+
+        res.status(500).json({
+
+            error:"Report failed"
+
+        });
+
+
     }
 
+
 });
 
-/* =========================
-   SOCKET SYSTEM
-========================= */
 
-io.on("connection", (socket) => {
 
-    console.log("User connected:", socket.id);
 
-    socket.on("disconnect", () => {
-        console.log("User disconnected");
+// =========================
+// SOCKET CONNECTION
+// =========================
+
+
+io.on(
+"connection",
+(socket)=>{
+
+
+    console.log(
+        "User connected:",
+        socket.id
+    );
+
+
+
+    socket.on(
+    "disconnect",
+    ()=>{
+
+
+        console.log(
+            "User disconnected:",
+            socket.id
+        );
+
+
     });
 
+
 });
 
-/* 
-   START SERVER
-*/
-const PORT = process.env.PORT || 5000;
-server.listen(3000, () => {
-    console.log("⚡ ChargeFlow running with PostgreSQL");
-});
-app.get("/", (req, res) => {
-    res.send("EV Weather Backend is running successfully");
-});
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+
+
+
+// =========================
+// START SERVER
+// =========================
+
+
+const PORT = process.env.PORT || 3000;
+
+
+server.listen(
+PORT,
+()=>{
+
+
+    console.log(
+        ` ChargeFlow running on port ${PORT}`
+    );
+
+
 });

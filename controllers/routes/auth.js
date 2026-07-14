@@ -10,7 +10,7 @@ router.post("/register", register);
 router.post("/login", login);
 
 module.exports = router;
-import { login } from "./api.js";
+const { login } = require("../authController");
 
 document
     .getElementById("loginBtn")

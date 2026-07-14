@@ -1,16 +1,11 @@
 const express = require("express");
 const router = express.Router();
-
-const {
-    register,
-    login
-} = require("../authController.js");
-
+const { login } = require("../authController");
 router.post("/register", register);
 router.post("/login", login);
 
 module.exports = router;
-const { login } = require("../authController");
+
 
 document
     .getElementById("loginBtn")

@@ -9,11 +9,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" }
 });
-const PORT = process.env.PORT || 5000;
+console.log("Server file started");
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
 
 app.use(cors());
 app.use(express.json());
@@ -120,7 +118,10 @@ io.on("connection", (socket) => {
 /* 
    START SERVER
 */
-
+const PORT = process.env.PORT || 5000;
 server.listen(3000, () => {
     console.log("⚡ ChargeFlow running with PostgreSQL");
+});
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
